@@ -8,7 +8,7 @@ const sendHelpMenu = (message: Message, instance: WOKCommands) => {
   const { embed, reactions } = getFirstEmbed(message, instance)
 
   message.channel
-    .send('', {
+    .send({
       embed,
     })
     .then((message) => {
@@ -79,6 +79,6 @@ module.exports = {
       embed.setColor(instance.color)
     }
 
-    message.channel.send('', { embed })
+    message.channel.send({ embed })
   },
 }

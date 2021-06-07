@@ -28,4 +28,5 @@ export default interface ICommand {
   guildOnly?: boolean;
   testOnly?: boolean;
   slash?: boolean | "both";
+  loadIndicator?: boolean;
 }

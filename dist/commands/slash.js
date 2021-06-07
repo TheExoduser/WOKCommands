@@ -83,7 +83,7 @@ module.exports = {
                     _a.label = 3;
                 case 3:
                     embed.setColor(instance.color);
-                    channel.send("", { embed: embed });
+                    channel.send({ embed: embed });
                     return [2 /*return*/];
             }
         });

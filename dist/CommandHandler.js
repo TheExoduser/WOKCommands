@@ -84,234 +84,258 @@ var CommandHandler = /** @class */ (function () {
                 var _d = files_1[_c], file = _d[0], fileName = _d[1];
                 this.registerCommand(instance, client, file, fileName);
             }
-            client.on("message", function (message) {
-                var _a;
-                var guild = message.guild;
-                var content = message.content;
-                var prefix = instance.getPrefix(guild);
-                if (!content.startsWith(prefix)) {
-                    return;
-                }
-                if (instance.ignoreBots && message.author.bot) {
-                    return;
-                }
-                // Remove the prefix
-                content = content.substring(prefix.length);
-                var args = content.split(/ /g);
-                // Remove the "command", leaving just the arguments
-                var firstElement = args.shift();
-                if (!firstElement) {
-                    return;
-                }
-                // Ensure the user input is lower case because it is stored as lower case in the map
-                var name = firstElement.toLowerCase();
-                var command = _this._commands.get(name);
-                if (!command) {
-                    return;
-                }
-                var error = command.error, slash = command.slash;
-                if (slash === true) {
-                    return;
-                }
-                if (guild) {
-                    var isDisabled = command.isDisabled(guild.id);
-                    if (isDisabled) {
-                        if (error) {
-                            error({
-                                error: CommandErrors_1.default.COMMAND_DISABLED,
-                                command: command,
-                                message: message,
-                            });
-                        }
-                        else {
-                            message
-                                .reply(instance.messageHandler.get(guild, "DISABLED_COMMAND"))
-                                .then(function (message) {
-                                console.log(instance.del);
-                                if (instance.del === -1) {
-                                    return;
-                                }
-                                setTimeout(function () {
-                                    message.delete();
-                                }, 1000 * instance.del);
-                            });
-                        }
-                        return;
-                    }
-                }
-                var member = message.member, user = message.author;
-                var minArgs = command.minArgs, maxArgs = command.maxArgs, expectedArgs = command.expectedArgs, requiredPermissions = command.requiredPermissions, cooldown = command.cooldown, globalCooldown = command.globalCooldown, testOnly = command.testOnly;
-                if (testOnly && (!guild || !instance.testServers.includes(guild.id))) {
-                    return;
-                }
-                if (guild && member) {
-                    for (var _i = 0, _b = requiredPermissions || []; _i < _b.length; _i++) {
-                        var perm = _b[_i];
-                        // @ts-ignore
-                        if (!member.permissions.has(perm)) {
-                            if (error) {
-                                error({
-                                    error: CommandErrors_1.default.MISSING_PERMISSIONS,
-                                    command: command,
-                                    message: message,
-                                });
+            client.on("message", function (message) { return __awaiter(_this, void 0, void 0, function () {
+                var guild, content, prefix, args, firstElement, name, command, error, slash, isDisabled, member, user, minArgs, maxArgs, expectedArgs, requiredPermissions, cooldown, globalCooldown, testOnly, _i, _a, perm, roles, missingRoles, missingRolesNames, _b, roles_1, role, syntaxError, messageHandler, errorMsg, guildId, timeLeft, key, channels, channelList, _c, channels_1, channel, e_1;
+                var _d;
+                return __generator(this, function (_e) {
+                    switch (_e.label) {
+                        case 0:
+                            guild = message.guild;
+                            content = message.content;
+                            prefix = instance.getPrefix(guild);
+                            if (!content.startsWith(prefix)) {
+                                return [2 /*return*/];
                             }
-                            else {
-                                message
-                                    .reply(instance.messageHandler.get(guild, "MISSING_PERMISSION", {
-                                    PERM: perm,
-                                }))
-                                    .then(function (message) {
-                                    if (instance.del === -1) {
-                                        return;
+                            if (instance.ignoreBots && message.author.bot) {
+                                return [2 /*return*/];
+                            }
+                            // Remove the prefix
+                            content = content.substring(prefix.length);
+                            args = content.split(/ /g);
+                            firstElement = args.shift();
+                            if (!firstElement) {
+                                return [2 /*return*/];
+                            }
+                            name = firstElement.toLowerCase();
+                            command = this._commands.get(name);
+                            if (!command) {
+                                return [2 /*return*/];
+                            }
+                            error = command.error, slash = command.slash;
+                            if (slash === true) {
+                                return [2 /*return*/];
+                            }
+                            if (guild) {
+                                isDisabled = command.isDisabled(guild.id);
+                                if (isDisabled) {
+                                    if (error) {
+                                        error({
+                                            error: CommandErrors_1.default.COMMAND_DISABLED,
+                                            command: command,
+                                            message: message,
+                                        });
                                     }
-                                    setTimeout(function () {
-                                        message.delete();
-                                    }, 1000 * instance.del);
-                                });
+                                    else {
+                                        message
+                                            .reply(instance.messageHandler.get(guild, "DISABLED_COMMAND"))
+                                            .then(function (message) {
+                                            console.log(instance.del);
+                                            if (instance.del === -1) {
+                                                return;
+                                            }
+                                            setTimeout(function () {
+                                                message.delete();
+                                            }, 1000 * instance.del);
+                                        });
+                                    }
+                                    return [2 /*return*/];
+                                }
                             }
-                            return;
-                        }
-                    }
-                    var roles = command.getRequiredRoles(guild.id);
-                    if (roles && roles.length) {
-                        var missingRoles = [];
-                        var missingRolesNames = [];
-                        for (var _c = 0, roles_1 = roles; _c < roles_1.length; _c++) {
-                            var role = roles_1[_c];
-                            if (!member.roles.cache.has(role)) {
-                                missingRoles.push(role);
-                                missingRolesNames.push((_a = guild.roles.cache.get(role)) === null || _a === void 0 ? void 0 : _a.name);
+                            member = message.member, user = message.author;
+                            minArgs = command.minArgs, maxArgs = command.maxArgs, expectedArgs = command.expectedArgs, requiredPermissions = command.requiredPermissions, cooldown = command.cooldown, globalCooldown = command.globalCooldown, testOnly = command.testOnly;
+                            if (testOnly && (!guild || !instance.testServers.includes(guild.id))) {
+                                return [2 /*return*/];
                             }
-                        }
-                        if (missingRoles.length) {
+                            if (guild && member) {
+                                for (_i = 0, _a = requiredPermissions || []; _i < _a.length; _i++) {
+                                    perm = _a[_i];
+                                    // @ts-ignore
+                                    if (!member.permissions.has(perm)) {
+                                        if (error) {
+                                            error({
+                                                error: CommandErrors_1.default.MISSING_PERMISSIONS,
+                                                command: command,
+                                                message: message,
+                                            });
+                                        }
+                                        else {
+                                            message
+                                                .reply(instance.messageHandler.get(guild, "MISSING_PERMISSION", {
+                                                PERM: perm,
+                                            }))
+                                                .then(function (message) {
+                                                if (instance.del === -1) {
+                                                    return;
+                                                }
+                                                setTimeout(function () {
+                                                    message.delete();
+                                                }, 1000 * instance.del);
+                                            });
+                                        }
+                                        return [2 /*return*/];
+                                    }
+                                }
+                                roles = command.getRequiredRoles(guild.id);
+                                if (roles && roles.length) {
+                                    missingRoles = [];
+                                    missingRolesNames = [];
+                                    for (_b = 0, roles_1 = roles; _b < roles_1.length; _b++) {
+                                        role = roles_1[_b];
+                                        if (!member.roles.cache.has(role)) {
+                                            missingRoles.push(role);
+                                            missingRolesNames.push((_d = guild.roles.cache.get(role)) === null || _d === void 0 ? void 0 : _d.name);
+                                        }
+                                    }
+                                    if (missingRoles.length) {
+                                        if (error) {
+                                            error({
+                                                error: CommandErrors_1.default.MISSING_ROLES,
+                                                command: command,
+                                                message: message,
+                                                info: {
+                                                    missingRoles: missingRoles,
+                                                },
+                                            });
+                                        }
+                                        else {
+                                            message
+                                                .reply(instance.messageHandler.get(guild, "MISSING_ROLES", {
+                                                ROLES: missingRolesNames.join(", "),
+                                            }))
+                                                .then(function (message) {
+                                                if (instance.del === -1) {
+                                                    return;
+                                                }
+                                                setTimeout(function () {
+                                                    message.delete();
+                                                }, 1000 * instance.del);
+                                            });
+                                        }
+                                        return [2 /*return*/];
+                                    }
+                                }
+                            }
+                            // Are the proper number of arguments provided?
+                            if ((minArgs !== undefined && args.length < minArgs) ||
+                                (maxArgs !== undefined && maxArgs !== -1 && args.length > maxArgs)) {
+                                syntaxError = command.syntaxError || {};
+                                messageHandler = instance.messageHandler;
+                                errorMsg = syntaxError[messageHandler.getLanguage(guild)] ||
+                                    instance.messageHandler.get(guild, "SYNTAX_ERROR");
+                                // Replace {PREFIX} with the actual prefix
+                                if (errorMsg) {
+                                    errorMsg = errorMsg.replace(/{PREFIX}/g, prefix);
+                                }
+                                // Replace {COMMAND} with the name of the command that was ran
+                                errorMsg = errorMsg.replace(/{COMMAND}/g, name);
+                                // Replace {ARGUMENTS} with the expectedArgs property from the command
+                                // If one was not provided then replace {ARGUMENTS} with an empty string
+                                errorMsg = errorMsg.replace(/ {ARGUMENTS}/g, expectedArgs ? " " + expectedArgs : "");
+                                if (error) {
+                                    error({
+                                        error: CommandErrors_1.default.INVALID_ARGUMENTS,
+                                        command: command,
+                                        message: message,
+                                        info: {
+                                            minArgs: minArgs,
+                                            maxArgs: maxArgs,
+                                            length: args.length,
+                                            errorMsg: errorMsg,
+                                        },
+                                    });
+                                }
+                                else {
+                                    // Reply with the local or global syntax error
+                                    message.reply(errorMsg);
+                                }
+                                return [2 /*return*/];
+                            }
+                            // Check for cooldowns
+                            if ((cooldown || globalCooldown) && user) {
+                                guildId = guild ? guild.id : "dm";
+                                timeLeft = command.getCooldownSeconds(guildId, user.id);
+                                if (timeLeft) {
+                                    if (error) {
+                                        error({
+                                            error: CommandErrors_1.default.COOLDOWN,
+                                            command: command,
+                                            message: message,
+                                            info: {
+                                                timeLeft: timeLeft,
+                                            },
+                                        });
+                                    }
+                                    else {
+                                        message.reply(instance.messageHandler.get(guild, "COOLDOWN", {
+                                            COOLDOWN: timeLeft,
+                                        }));
+                                    }
+                                    return [2 /*return*/];
+                                }
+                                if (!error)
+                                    command.setCooldown(guildId, user.id);
+                            }
+                            // Check for channel specific commands
+                            if (guild) {
+                                key = guild.id + "-" + command.names[0];
+                                channels = command.requiredChannels.get(key);
+                                if (channels &&
+                                    channels.length &&
+                                    !channels.includes(message.channel.id)) {
+                                    channelList = "";
+                                    for (_c = 0, channels_1 = channels; _c < channels_1.length; _c++) {
+                                        channel = channels_1[_c];
+                                        channelList += "<#" + channel + ">, ";
+                                    }
+                                    channelList = channelList.substring(0, channelList.length - 2);
+                                    message.reply(instance.messageHandler.get(guild, "ALLOWED_CHANNELS", {
+                                        CHANNELS: channelList,
+                                    }));
+                                    return [2 /*return*/];
+                                }
+                            }
+                            if (!(guild && message.channel)) return [3 /*break*/, 2];
+                            if (!command.loadIndicator) return [3 /*break*/, 2];
+                            message.channel.startTyping(10).catch(function (e) { return false; });
+                            return [4 /*yield*/, message.react("🕑")];
+                        case 1:
+                            _e.sent();
+                            _e.label = 2;
+                        case 2:
+                            _e.trys.push([2, 4, , 5]);
+                            return [4 /*yield*/, command.execute(message, args)];
+                        case 3:
+                            _e.sent();
+                            return [3 /*break*/, 5];
+                        case 4:
+                            e_1 = _e.sent();
                             if (error) {
                                 error({
-                                    error: CommandErrors_1.default.MISSING_ROLES,
+                                    error: CommandErrors_1.default.EXCEPTION,
                                     command: command,
                                     message: message,
                                     info: {
-                                        missingRoles: missingRoles,
+                                        error: e_1,
                                     },
                                 });
                             }
                             else {
-                                message
-                                    .reply(instance.messageHandler.get(guild, "MISSING_ROLES", {
-                                    ROLES: missingRolesNames.join(", "),
-                                }))
-                                    .then(function (message) {
-                                    if (instance.del === -1) {
-                                        return;
-                                    }
-                                    setTimeout(function () {
-                                        message.delete();
-                                    }, 1000 * instance.del);
-                                });
+                                message.reply(instance.messageHandler.get(guild, "EXCEPTION"));
+                                console.error(e_1);
                             }
-                            return;
-                        }
+                            instance.emit(Events_1.default.COMMAND_EXCEPTION, command, message, e_1);
+                            return [3 /*break*/, 5];
+                        case 5:
+                            if (guild && message.channel) {
+                                if (command.loadIndicator) {
+                                    message.channel.stopTyping(true);
+                                    message.reactions.removeAll().catch(function (err) { });
+                                }
+                            }
+                            return [2 /*return*/];
                     }
-                }
-                // Are the proper number of arguments provided?
-                if ((minArgs !== undefined && args.length < minArgs) ||
-                    (maxArgs !== undefined && maxArgs !== -1 && args.length > maxArgs)) {
-                    var syntaxError = command.syntaxError || {};
-                    var messageHandler = instance.messageHandler;
-                    var errorMsg = syntaxError[messageHandler.getLanguage(guild)] ||
-                        instance.messageHandler.get(guild, "SYNTAX_ERROR");
-                    // Replace {PREFIX} with the actual prefix
-                    if (errorMsg) {
-                        errorMsg = errorMsg.replace(/{PREFIX}/g, prefix);
-                    }
-                    // Replace {COMMAND} with the name of the command that was ran
-                    errorMsg = errorMsg.replace(/{COMMAND}/g, name);
-                    // Replace {ARGUMENTS} with the expectedArgs property from the command
-                    // If one was not provided then replace {ARGUMENTS} with an empty string
-                    errorMsg = errorMsg.replace(/ {ARGUMENTS}/g, expectedArgs ? " " + expectedArgs : "");
-                    if (error) {
-                        error({
-                            error: CommandErrors_1.default.INVALID_ARGUMENTS,
-                            command: command,
-                            message: message,
-                            info: {
-                                minArgs: minArgs,
-                                maxArgs: maxArgs,
-                                length: args.length,
-                                errorMsg: errorMsg,
-                            },
-                        });
-                    }
-                    else {
-                        // Reply with the local or global syntax error
-                        message.reply(errorMsg);
-                    }
-                    return;
-                }
-                // Check for cooldowns
-                if ((cooldown || globalCooldown) && user) {
-                    var guildId = guild ? guild.id : "dm";
-                    var timeLeft = command.getCooldownSeconds(guildId, user.id);
-                    if (timeLeft) {
-                        if (error) {
-                            error({
-                                error: CommandErrors_1.default.COOLDOWN,
-                                command: command,
-                                message: message,
-                                info: {
-                                    timeLeft: timeLeft,
-                                },
-                            });
-                        }
-                        else {
-                            message.reply(instance.messageHandler.get(guild, "COOLDOWN", {
-                                COOLDOWN: timeLeft,
-                            }));
-                        }
-                        return;
-                    }
-                    command.setCooldown(guildId, user.id);
-                }
-                // Check for channel specific commands
-                if (guild) {
-                    var key = guild.id + "-" + command.names[0];
-                    var channels = command.requiredChannels.get(key);
-                    if (channels &&
-                        channels.length &&
-                        !channels.includes(message.channel.id)) {
-                        var channelList = "";
-                        for (var _d = 0, channels_1 = channels; _d < channels_1.length; _d++) {
-                            var channel = channels_1[_d];
-                            channelList += "<#" + channel + ">, ";
-                        }
-                        channelList = channelList.substring(0, channelList.length - 2);
-                        message.reply(instance.messageHandler.get(guild, "ALLOWED_CHANNELS", {
-                            CHANNELS: channelList,
-                        }));
-                        return;
-                    }
-                }
-                try {
-                    command.execute(message, args);
-                }
-                catch (e) {
-                    if (error) {
-                        error({
-                            error: CommandErrors_1.default.EXCEPTION,
-                            command: command,
-                            message: message,
-                            info: {
-                                error: e,
-                            },
-                        });
-                    }
-                    else {
-                        message.reply(instance.messageHandler.get(guild, "EXCEPTION"));
-                        console.error(e);
-                    }
-                    instance.emit(Events_1.default.COMMAND_EXCEPTION, command, message, e);
-                }
-            });
+                });
+            }); });
             // If we cannot connect to a database then ensure all cooldowns are less than 5m
             instance.on(Events_1.default.DATABASE_CONNECTED, function (connection, state) { return __awaiter(_this, void 0, void 0, function () {
                 var connected;

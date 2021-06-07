@@ -185,6 +185,12 @@ var SlashCommands = /** @class */ (function () {
                         if (!command || !command.callback) {
                             return [2 /*return*/, false];
                         }
+                        if (guild && channel) {
+                            if (command.loadIndicator) {
+                                // @ts-ignore
+                                channel.startTyping(10).catch(function (e) { return false; });
+                            }
+                        }
                         return [4 /*yield*/, command.callback({
                                 member: member,
                                 guild: guild,
@@ -198,6 +204,12 @@ var SlashCommands = /** @class */ (function () {
                             })];
                     case 1:
                         result = _a.sent();
+                        if (guild && channel && channel instanceof discord_js_1.GuildChannel) {
+                            if (command.loadIndicator) {
+                                // @ts-ignore
+                                channel.stopTyping(true);
+                            }
+                        }
                         if (!result) {
                             console.error("WOKCommands > Command \"" + commandName + "\" did not return any content from it's callback function. This is required as it is a slash command.");
                             return [2 /*return*/, false];
