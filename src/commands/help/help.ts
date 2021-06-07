@@ -32,14 +32,14 @@ module.exports = {
 
     const guild = message.guild
 
-    if (guild && !guild.me?.hasPermission('SEND_MESSAGES')) {
+    if (guild && !guild.me?.permissions.has('SEND_MESSAGES')) {
       console.warn(
         `WOKCommands > Could not send message due to no permissions in channel for ${guild.name}`
       )
       return
     }
 
-    if (guild && !guild.me?.hasPermission('ADD_REACTIONS')) {
+    if (guild && !guild.me?.permissions.has('ADD_REACTIONS')) {
       message.reply(instance.messageHandler.get(guild, 'NO_REACT_PERMS'))
       return
     }

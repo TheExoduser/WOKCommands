@@ -63,8 +63,9 @@ var _get_first_embed_1 = __importDefault(require("./!get-first-embed"));
 var _ReactionListener_1 = __importStar(require("./!ReactionListener"));
 var sendHelpMenu = function (message, instance) {
     var _a = _get_first_embed_1.default(message, instance), embed = _a.embed, reactions = _a.reactions;
+    console.log(embed);
     message.channel
-        .send('', {
+        .send({
         embed: embed,
     })
         .then(function (message) {
@@ -89,11 +90,11 @@ module.exports = {
         var _a, _b, _c;
         var message = options.message, instance = options.instance, args = options.args;
         var guild = message.guild;
-        if (guild && !((_a = guild.me) === null || _a === void 0 ? void 0 : _a.hasPermission('SEND_MESSAGES'))) {
+        if (guild && !((_a = guild.me) === null || _a === void 0 ? void 0 : _a.permissions.has('SEND_MESSAGES'))) {
             console.warn("WOKCommands > Could not send message due to no permissions in channel for " + guild.name);
             return;
         }
-        if (guild && !((_b = guild.me) === null || _b === void 0 ? void 0 : _b.hasPermission('ADD_REACTIONS'))) {
+        if (guild && !((_b = guild.me) === null || _b === void 0 ? void 0 : _b.permissions.has('ADD_REACTIONS'))) {
             message.reply(instance.messageHandler.get(guild, 'NO_REACT_PERMS'));
             return;
         }

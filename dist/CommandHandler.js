@@ -148,7 +148,7 @@ var CommandHandler = /** @class */ (function () {
                     for (var _i = 0, _b = requiredPermissions || []; _i < _b.length; _i++) {
                         var perm = _b[_i];
                         // @ts-ignore
-                        if (!member.hasPermission(perm)) {
+                        if (!member.permissions.has(perm)) {
                             if (error) {
                                 error({
                                     error: CommandErrors_1.default.MISSING_PERMISSIONS,

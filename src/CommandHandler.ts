@@ -142,7 +142,7 @@ class CommandHandler {
         if (guild && member) {
           for (const perm of requiredPermissions || []) {
             // @ts-ignore
-            if (!member.hasPermission(perm)) {
+            if (!member.permissions.has(perm)) {
               if (error) {
                 error({
                   error: CommandErrors.MISSING_PERMISSIONS,
