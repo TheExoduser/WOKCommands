@@ -33,6 +33,7 @@ class Command {
   private _testOnly = false;
   private _slash: boolean | string = false;
   private _requiredChannels: Map<String, String[]> = new Map(); // <GuildID-Command, Channel IDs>
+  private _loadIndicator: boolean;
 
   constructor(
     instance: WOKCommands,
@@ -56,6 +57,7 @@ class Command {
       guildOnly = false,
       testOnly = false,
       slash = false,
+      loadIndicator = true
     }: ICommand
   ) {
     this.instance = instance;
@@ -85,6 +87,7 @@ class Command {
     this._callback = callback;
     this._error = error;
     this._slash = slash;
+    this._loadIndicator = loadIndicator;
 
     if (this.cooldown && this.globalCooldown) {
       throw new Error(
@@ -125,7 +128,7 @@ class Command {
     }
   }
 
-  public execute(message: Message, args: string[]) {
+  public async execute(message: Message, args: string[]) {
     if (
       this._ownerOnly &&
       !this.instance.botOwner.includes(message.author.id)
@@ -143,7 +146,7 @@ class Command {
       return;
     }
 
-    this._callback({
+    await this._callback({
       message,
       channel: message.channel,
       args,
@@ -204,6 +207,10 @@ class Command {
 
   public get testOnly(): boolean {
     return this._testOnly;
+  }
+
+  public get loadIndicator(): boolean {
+    return this._loadIndicator;
   }
 
   public verifyCooldown(cooldown: string, type: string) {

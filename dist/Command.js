@@ -41,7 +41,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 var cooldown_1 = __importDefault(require("./models/cooldown"));
 var Command = /** @class */ (function () {
     function Command(instance, client, names, callback, error, _a) {
-        var category = _a.category, minArgs = _a.minArgs, maxArgs = _a.maxArgs, syntaxError = _a.syntaxError, expectedArgs = _a.expectedArgs, description = _a.description, requiredPermissions = _a.requiredPermissions, permissions = _a.permissions, cooldown = _a.cooldown, globalCooldown = _a.globalCooldown, _b = _a.ownerOnly, ownerOnly = _b === void 0 ? false : _b, _c = _a.hidden, hidden = _c === void 0 ? false : _c, _d = _a.guildOnly, guildOnly = _d === void 0 ? false : _d, _e = _a.testOnly, testOnly = _e === void 0 ? false : _e, _f = _a.slash, slash = _f === void 0 ? false : _f;
+        var category = _a.category, minArgs = _a.minArgs, maxArgs = _a.maxArgs, syntaxError = _a.syntaxError, expectedArgs = _a.expectedArgs, description = _a.description, requiredPermissions = _a.requiredPermissions, permissions = _a.permissions, cooldown = _a.cooldown, globalCooldown = _a.globalCooldown, _b = _a.ownerOnly, ownerOnly = _b === void 0 ? false : _b, _c = _a.hidden, hidden = _c === void 0 ? false : _c, _d = _a.guildOnly, guildOnly = _d === void 0 ? false : _d, _e = _a.testOnly, testOnly = _e === void 0 ? false : _e, _f = _a.slash, slash = _f === void 0 ? false : _f, _g = _a.loadIndicator, loadIndicator = _g === void 0 ? true : _g;
         this._names = [];
         this._category = "";
         this._minArgs = 0;
@@ -86,6 +86,7 @@ var Command = /** @class */ (function () {
         this._callback = callback;
         this._error = error;
         this._slash = slash;
+        this._loadIndicator = loadIndicator;
         if (this.cooldown && this.globalCooldown) {
             throw new Error("Command \"" + names[0] + "\" has both a global and per-user cooldown. Commands can only have up to one of these properties.");
         }
@@ -109,23 +110,33 @@ var Command = /** @class */ (function () {
         }
     }
     Command.prototype.execute = function (message, args) {
-        if (this._ownerOnly &&
-            !this.instance.botOwner.includes(message.author.id)) {
-            message.reply(this.instance.messageHandler.get(message.guild, "BOT_OWNERS_ONLY"));
-            return;
-        }
-        if (this.guildOnly && !message.guild) {
-            message.reply(this.instance.messageHandler.get(message.guild, "GUILD_ONLY_COMMAND"));
-            return;
-        }
-        this._callback({
-            message: message,
-            channel: message.channel,
-            args: args,
-            text: args.join(" "),
-            client: this.client,
-            prefix: this.instance.getPrefix(message.guild),
-            instance: this.instance,
+        return __awaiter(this, void 0, void 0, function () {
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        if (this._ownerOnly &&
+                            !this.instance.botOwner.includes(message.author.id)) {
+                            message.reply(this.instance.messageHandler.get(message.guild, "BOT_OWNERS_ONLY"));
+                            return [2 /*return*/];
+                        }
+                        if (this.guildOnly && !message.guild) {
+                            message.reply(this.instance.messageHandler.get(message.guild, "GUILD_ONLY_COMMAND"));
+                            return [2 /*return*/];
+                        }
+                        return [4 /*yield*/, this._callback({
+                                message: message,
+                                channel: message.channel,
+                                args: args,
+                                text: args.join(" "),
+                                client: this.client,
+                                prefix: this.instance.getPrefix(message.guild),
+                                instance: this.instance,
+                            })];
+                    case 1:
+                        _a.sent();
+                        return [2 /*return*/];
+                }
+            });
         });
     };
     Object.defineProperty(Command.prototype, "names", {
@@ -215,6 +226,13 @@ var Command = /** @class */ (function () {
     Object.defineProperty(Command.prototype, "testOnly", {
         get: function () {
             return this._testOnly;
+        },
+        enumerable: false,
+        configurable: true
+    });
+    Object.defineProperty(Command.prototype, "loadIndicator", {
+        get: function () {
+            return this._loadIndicator;
         },
         enumerable: false,
         configurable: true

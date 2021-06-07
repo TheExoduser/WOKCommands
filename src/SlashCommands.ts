@@ -4,6 +4,7 @@ import {
   Channel,
   Client,
   Guild,
+  GuildChannel,
   GuildMember,
   MessageEmbed,
 } from "discord.js";
@@ -151,6 +152,13 @@ class SlashCommands {
       return false;
     }
 
+    if (guild && channel) {
+      if (command.loadIndicator) {
+        // @ts-ignore
+        channel.startTyping(10).catch((e) => false);
+      }
+    }
+
     let result = await command.callback({
       member,
       guild,
@@ -162,6 +170,13 @@ class SlashCommands {
       instance: this._instance,
       interaction,
     });
+
+    if (guild && channel) {
+      if (command.loadIndicator) {
+        // @ts-ignore
+        channel.stopTyping(true);
+      }
+    }
 
     if (!result) {
       console.error(

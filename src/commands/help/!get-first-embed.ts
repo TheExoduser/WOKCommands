@@ -33,7 +33,7 @@ const getFirstEmbed = (message: Message, instance: WOKCommands) => {
     }
   } = {}
 
-  const isAdmin = member && member.hasPermission('ADMINISTRATOR')
+  const isAdmin = member && member.permissions.has('ADMINISTRATOR')
 
   for (const { category, testOnly } of commands) {
     if (
