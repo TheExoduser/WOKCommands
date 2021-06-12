@@ -296,7 +296,7 @@ var CommandHandler = /** @class */ (function () {
                             }
                             if (!(guild && message.channel)) return [3 /*break*/, 2];
                             if (!command.loadIndicator) return [3 /*break*/, 2];
-                            message.channel.startTyping(10).catch(function (e) { return false; });
+                            message.channel.startTyping().catch(function (e) { return false; });
                             return [4 /*yield*/, message.react("🕑")];
                         case 1:
                             _e.sent();
@@ -326,13 +326,14 @@ var CommandHandler = /** @class */ (function () {
                             instance.emit(Events_1.default.COMMAND_EXCEPTION, command, message, e_1);
                             return [3 /*break*/, 5];
                         case 5:
-                            if (guild && message.channel) {
-                                if (command.loadIndicator) {
-                                    message.channel.stopTyping(true);
-                                    message.reactions.removeAll().catch(function (err) { });
-                                }
-                            }
-                            return [2 /*return*/];
+                            if (!(guild && message.channel)) return [3 /*break*/, 7];
+                            if (!command.loadIndicator) return [3 /*break*/, 7];
+                            return [4 /*yield*/, message.channel.stopTyping(true)];
+                        case 6:
+                            _e.sent();
+                            message.reactions.removeAll().catch(function (err) { });
+                            _e.label = 7;
+                        case 7: return [2 /*return*/];
                     }
                 });
             }); });
