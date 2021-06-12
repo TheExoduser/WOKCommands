@@ -315,7 +315,7 @@ class CommandHandler {
 
                 if (guild && message.channel) {
                     if (command.loadIndicator) {
-                        message.channel.startTyping(10).catch((e) => false);
+                        message.channel.startTyping().catch((e) => false);
                         await message.react("🕑");
                     }
                 }
@@ -342,7 +342,7 @@ class CommandHandler {
 
                 if (guild && message.channel) {
                     if (command.loadIndicator) {
-                        message.channel.stopTyping(true);
+                        await message.channel.stopTyping(true);
                         message.reactions.removeAll().catch(err => {});
                     }
                 }
