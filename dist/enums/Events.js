@@ -5,5 +5,6 @@ var Events;
     Events["DATABASE_CONNECTED"] = "databaseConnected";
     Events["LANGUAGE_NOT_SUPPORTED"] = "languageNotSupported";
     Events["COMMAND_EXCEPTION"] = "commandException";
+    Events["COMMAND_EXECUTED"] = "commandExecuted";
 })(Events || (Events = {}));
 exports.default = Events;
