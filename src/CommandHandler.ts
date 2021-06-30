@@ -323,7 +323,7 @@ class CommandHandler {
                 try {
                     await command.execute(message, args);
 
-                    instance.emit(Events.COMMAND_EXECUTED, command, message);
+                    instance.emit(Events.COMMAND_EXECUTED, command, args, message);
                 } catch (e) {
                     if (error) {
                         error({
