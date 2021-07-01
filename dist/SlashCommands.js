@@ -206,6 +206,7 @@ var SlashCommands = /** @class */ (function () {
                             command: command,
                             member: member,
                             guild: guild,
+                            channel: channel,
                             message: {
                                 guild: guild,
                                 author: member.user,

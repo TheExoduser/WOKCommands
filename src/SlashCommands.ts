@@ -169,6 +169,7 @@ class SlashCommands {
       command,
       member,
       guild,
+      channel,
       message: {
         guild: guild,
         author: member.user,
