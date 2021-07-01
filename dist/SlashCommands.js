@@ -46,7 +46,11 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 var discord_js_1 = require("discord.js");
+var Events_1 = __importDefault(require("./enums/Events"));
 var SlashCommands = /** @class */ (function () {
     function SlashCommands(instance, listen) {
         var _this = this;
@@ -198,6 +202,21 @@ var SlashCommands = /** @class */ (function () {
                             })];
                     case 1:
                         result = _a.sent();
+                        this._instance.emit(Events_1.default.COMMAND_EXECUTED, {
+                            command: command,
+                            member: member,
+                            guild: guild,
+                            message: {
+                                guild: guild,
+                                author: member.user,
+                            },
+                            args: options,
+                            // @ts-ignore
+                            text: options.join ? options.join(" ") : "",
+                            client: this._client,
+                            instance: this._instance,
+                            interaction: interaction,
+                        });
                         if (!result) {
                             console.error("WOKCommands > Command \"" + commandName + "\" did not return any content from it's callback function. This is required as it is a slash command.");
                             return [2 /*return*/, false];

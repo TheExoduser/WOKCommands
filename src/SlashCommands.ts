@@ -10,6 +10,7 @@ import {
 } from "discord.js";
 import WOKCommands from ".";
 import ISlashCommand from "./interfaces/ISlashCommand";
+import Events from "./enums/Events";
 
 class SlashCommands {
   private _client: Client;
@@ -156,6 +157,22 @@ class SlashCommands {
       member,
       guild,
       channel,
+      args: options,
+      // @ts-ignore
+      text: options.join ? options.join(" ") : "",
+      client: this._client,
+      instance: this._instance,
+      interaction,
+    });
+
+    this._instance.emit(Events.COMMAND_EXECUTED, {
+      command,
+      member,
+      guild,
+      message: {
+        guild: guild,
+        author: member.user,
+      },
       args: options,
       // @ts-ignore
       text: options.join ? options.join(" ") : "",
