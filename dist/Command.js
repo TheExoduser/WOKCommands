@@ -39,6 +39,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 var cooldown_1 = __importDefault(require("./models/cooldown"));
+var Events_1 = __importDefault(require("./enums/Events"));
 var Command = /** @class */ (function () {
     function Command(instance, client, names, callback, error, _a) {
         var category = _a.category, minArgs = _a.minArgs, maxArgs = _a.maxArgs, syntaxError = _a.syntaxError, expectedArgs = _a.expectedArgs, description = _a.description, requiredPermissions = _a.requiredPermissions, permissions = _a.permissions, cooldown = _a.cooldown, globalCooldown = _a.globalCooldown, _b = _a.ownerOnly, ownerOnly = _b === void 0 ? false : _b, _c = _a.hidden, hidden = _c === void 0 ? false : _c, _d = _a.guildOnly, guildOnly = _d === void 0 ? false : _d, _e = _a.testOnly, testOnly = _e === void 0 ? false : _e, _f = _a.slash, slash = _f === void 0 ? false : _f, _g = _a.loadIndicator, loadIndicator = _g === void 0 ? true : _g;
@@ -134,6 +135,18 @@ var Command = /** @class */ (function () {
                             })];
                     case 1:
                         _a.sent();
+                        this.instance.emit(Events_1.default.COMMAND_EXECUTED, {
+                            command: this,
+                            member: message.member,
+                            guild: message.guild,
+                            message: message,
+                            channel: message.channel,
+                            args: args,
+                            text: args.join(" "),
+                            client: this.client,
+                            prefix: this.instance.getPrefix(message.guild),
+                            instance: this.instance,
+                        });
                         return [2 /*return*/];
                 }
             });

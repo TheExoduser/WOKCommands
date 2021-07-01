@@ -306,7 +306,6 @@ var CommandHandler = /** @class */ (function () {
                             return [4 /*yield*/, command.execute(message, args)];
                         case 3:
                             _e.sent();
-                            instance.emit(Events_1.default.COMMAND_EXECUTED, command, args, message);
                             return [3 /*break*/, 5];
                         case 4:
                             e_1 = _e.sent();

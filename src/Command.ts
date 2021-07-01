@@ -4,6 +4,7 @@ import WOKCommands from ".";
 import permissions from "./permissions";
 import ICommand from "./interfaces/ICommand";
 import cooldownSchema from "./models/cooldown";
+import Events from "./enums/Events";
 
 class Command {
   private instance: WOKCommands;
@@ -147,6 +148,19 @@ class Command {
     }
 
     await this._callback({
+      message,
+      channel: message.channel,
+      args,
+      text: args.join(" "),
+      client: this.client,
+      prefix: this.instance.getPrefix(message.guild),
+      instance: this.instance,
+    });
+
+    this.instance.emit(Events.COMMAND_EXECUTED, {
+      command: this,
+      member: message.member,
+      guild: message.guild,
       message,
       channel: message.channel,
       args,
