@@ -13,6 +13,7 @@ import path from 'path'
 import getAllFiles from './get-all-files'
 import WOKCommands from '.'
 import slashCommands from './models/slash-commands'
+import Events from './enums/Events'
 
 class SlashCommands {
   private _client: Client
@@ -222,7 +223,16 @@ class SlashCommands {
         })
       } else {
         let embeds = []
-    });
+
+        if (Array.isArray(reply)) {
+          embeds = reply
+        } else {
+          embeds.push(reply)
+        }
+
+        interaction.reply({ embeds })
+      }
+    }
 
     this._instance.emit(Events.COMMAND_EXECUTED, {
       command,
@@ -240,16 +250,6 @@ class SlashCommands {
       instance: this._instance,
       interaction,
     });
-
-        if (Array.isArray(reply)) {
-          embeds = reply
-        } else {
-          embeds.push(reply)
-        }
-
-        interaction.reply({ embeds })
-      }
-    }
   }
 }
 

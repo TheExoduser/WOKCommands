@@ -153,6 +153,7 @@ export interface ICommand {
   slash?: boolean | 'both'
   options?: ApplicationCommandOptionData[]
   delete?: boolean
+  loadIndicator?: boolean
 }
 
 export interface ISlashCommand {
@@ -184,4 +185,5 @@ export enum Events {
   DATABASE_CONNECTED = 'databaseConnected',
   LANGUAGE_NOT_SUPPORTED = 'languageNotSupported',
   COMMAND_EXCEPTION = 'commandException',
+  COMMAND_EXECUTED = 'commandExecuted',
 }

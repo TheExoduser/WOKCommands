@@ -153,6 +153,13 @@ export default class CommandHandler {
           }
         }
 
+        if (guild && message.channel) {
+          if (command.loadIndicator) {
+              message.channel.sendTyping().catch((e) => false);
+              await message.react("🕑");
+          }
+        }
+
         try {
           command.execute(message, args)
         } catch (e) {
@@ -171,6 +178,12 @@ export default class CommandHandler {
           }
 
           instance.emit(Events.COMMAND_EXCEPTION, command, message, e)
+        }
+
+        if (guild && message.channel) {
+          if (command.loadIndicator) {
+              message.reactions.removeAll().catch(err => {});
+          }
         }
       })
 

@@ -4,6 +4,7 @@ import WOKCommands from '.'
 import permissions from './permissions'
 import cooldownSchema from './models/cooldown'
 import { ICommand } from '../typings'
+import Events from './enums/Events'
 
 class Command {
   private instance: WOKCommands
@@ -155,6 +156,19 @@ class Command {
         embeds,
       })
     }
+
+    this.instance.emit(Events.COMMAND_EXECUTED, {
+      command: this,
+      member: message.member,
+      guild: message.guild,
+      message,
+      channel: message.channel,
+      args,
+      text: args.join(" "),
+      client: this.client,
+      prefix: this.instance.getPrefix(message.guild),
+      instance: this.instance,
+    });
   }
 
   public get names(): string[] {
