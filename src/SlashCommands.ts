@@ -1,168 +1,227 @@
 import {
-  APIMessage,
-  APIMessageContentResolvable,
+  ApplicationCommand,
+  ApplicationCommandOptionData,
   Channel,
   Client,
+  CommandInteraction,
+  CommandInteractionOptionResolver,
   Guild,
-  GuildChannel,
-  GuildMember,
   MessageEmbed,
-} from "discord.js";
-import WOKCommands from ".";
-import ISlashCommand from "./interfaces/ISlashCommand";
-import Events from "./enums/Events";
+} from 'discord.js'
+import path from 'path'
+
+import getAllFiles from './get-all-files'
+import WOKCommands from '.'
+import slashCommands from './models/slash-commands'
 
 class SlashCommands {
-  private _client: Client;
-  private _instance: WOKCommands;
+  private _client: Client
+  private _instance: WOKCommands
+  private _commandChecks: Map<String, Function> = new Map()
 
   constructor(instance: WOKCommands, listen = true) {
-    this._instance = instance;
-    this._client = instance.client;
+    this._instance = instance
+    this._client = instance.client
+
+    for (const [file, fileName] of getAllFiles(
+      path.join(__dirname, 'command-checks')
+    )) {
+      this._commandChecks.set(fileName, require(file))
+    }
+
+    const replyFromCheck = async (
+      reply: string | MessageEmbed | MessageEmbed[],
+      interaction: CommandInteraction
+    ) => {
+      if (!reply) {
+        return new Promise((resolve) => {
+          resolve('No reply provided.')
+        })
+      }
+
+      if (typeof reply === 'string') {
+        return interaction.reply({
+          content: reply,
+        })
+      } else {
+        let embeds = []
+
+        if (Array.isArray(reply)) {
+          embeds = reply
+        } else {
+          embeds.push(reply)
+        }
+
+        return interaction.reply({
+          embeds,
+        })
+      }
+    }
 
     if (listen) {
-      // @ts-ignore
-      this._client.ws.on("INTERACTION_CREATE", async (interaction) => {
-        const { member, data, guild_id, channel_id } = interaction;
-        const { name, options } = data;
+      this._client.on('interactionCreate', async (interaction) => {
+        if (!interaction.isCommand()) {
+          return
+        }
 
-        const command = name.toLowerCase();
-        const guild = this._client.guilds.cache.get(guild_id);
-        const args = this.getArrayFromOptions(guild, options);
-        const channel = guild?.channels.cache.get(channel_id);
-        this.invokeCommand(interaction, command, args, member, guild, channel);
-      });
+        const { member, user, commandName, options, guild, channelId } =
+          interaction
+        const command = instance.commandHandler.getCommand(commandName)
+        const channel = guild?.channels.cache.get(channelId) || null
+
+        const args: string[] = []
+
+        options.data.forEach(({ value }) => {
+          args.push(String(value))
+        })
+
+        for (const [
+          checkName,
+          checkFunction,
+        ] of this._commandChecks.entries()) {
+          if (
+            !(await checkFunction(
+              guild,
+              command,
+              instance,
+              member,
+              user,
+              (reply: string | MessageEmbed) => {
+                return replyFromCheck(reply, interaction)
+              },
+              args,
+              commandName,
+              channel
+            ))
+          ) {
+            return
+          }
+        }
+
+        this.invokeCommand(
+          interaction,
+          commandName,
+          options,
+          args,
+          member,
+          guild,
+          channel
+        )
+      })
     }
   }
 
-  public async get(guildId?: string): Promise<ISlashCommand[]> {
-    // @ts-ignore
-    const app = this._client.api.applications(this._client.user.id);
+  public getCommands(guildId?: string) {
     if (guildId) {
-      app.guilds(guildId);
+      return this._client.guilds.cache.get(guildId)?.commands
     }
 
-    return await app.commands.get();
+    return this._client.application?.commands
+  }
+
+  public async get(guildId?: string): Promise<Map<any, any>> {
+    const commands = this.getCommands(guildId)
+    if (commands) {
+      return commands.cache
+    }
+
+    return new Map()
   }
 
   public async create(
     name: string,
     description: string,
-    options: Object[] = [],
+    options: ApplicationCommandOptionData[],
     guildId?: string
-  ): Promise<Object> {
+  ): Promise<ApplicationCommand<{}> | undefined> {
     // @ts-ignore
-    const app = this._client.api.applications(this._client.user.id);
+    const nameAndClient = `${name}-${this._client.user.id}`
+    let commands
+
     if (guildId) {
-      app.guilds(guildId);
+      commands = this._client.guilds.cache.get(guildId)?.commands
+    } else {
+      commands = this._client.application?.commands
+
+      if (this._instance.isDBConnected()) {
+        const alreadyCreated = await slashCommands.findOne({ nameAndClient })
+        if (alreadyCreated) {
+          try {
+            await commands?.fetch(alreadyCreated._id)
+          } catch (e) {
+            await slashCommands.deleteOne({ nameAndClient })
+          }
+          return
+        }
+      }
     }
 
-    return await app.commands.post({
-      data: {
+    if (commands) {
+      const newCommand = await commands.create({
         name,
         description,
         options,
-      },
-    });
+      })
+
+      if (!guildId) {
+        await new slashCommands({
+          _id: newCommand.id,
+          nameAndClient,
+        }).save()
+      }
+
+      return newCommand
+    }
+
+    return Promise.resolve(undefined)
   }
 
-  public async delete(commandId: string, guildId?: string): Promise<Buffer> {
-    // @ts-ignore
-    const app = this._client.api.applications(this._client.user.id);
-    if (guildId) {
-      app.guilds(guildId);
+  public async delete(
+    commandId: string,
+    guildId?: string
+  ): Promise<ApplicationCommand<{}> | undefined> {
+    const commands = this.getCommands(guildId)
+    if (commands) {
+      return await commands.cache.get(commandId)?.delete()
     }
 
-    return await app.commands(commandId).delete();
-  }
-
-  // Checks if string is a user id, if true, returns a Guild Member object
-  private getMemberIfExists(value: string, guild: any) {
-    if (
-      value &&
-      typeof value === "string" &&
-      value.startsWith("<@!") &&
-      value.endsWith(">")
-    ) {
-      value = value.substring(3, value.length - 1);
-
-      value = guild?.members.cache.get(value);
-    }
-
-    return value;
-  }
-
-  public getObjectFromOptions(
-    guild: { members: { cache: any } },
-    options?: { name: string; value: string }[]
-  ): Object {
-    const args: { [key: string]: any } = {};
-    if (!options) {
-      return args;
-    }
-
-    for (const { name, value } of options) {
-      args[name] = this.getMemberIfExists(value, guild);
-    }
-
-    return args;
-  }
-
-  public getArrayFromOptions(
-    guild: { members: { cache: any } } | undefined,
-    options?: { name: string; value: string }[]
-  ): string[] {
-    const args: string[] = [];
-    if (!options) {
-      return args;
-    }
-
-    for (const { value } of options) {
-      args.push(this.getMemberIfExists(value, guild));
-    }
-
-    return args;
-  }
-
-  public async createAPIMessage(
-    interaction: APIMessageContentResolvable,
-    content: any
-  ) {
-    const { data, files } = await APIMessage.create(
-      // @ts-ignore
-      this._client.channels.resolve(interaction.channel_id),
-      content
-    )
-      .resolveData()
-      .resolveFiles();
-
-    return { ...data, files };
+    return Promise.resolve(undefined)
   }
 
   public async invokeCommand(
-    interaction: APIMessageContentResolvable,
+    interaction: CommandInteraction,
     commandName: string,
-    options: object,
-    member: GuildMember,
-    guild: Guild | undefined,
-    channel: Channel | undefined
-  ): Promise<boolean> {
-    const command = this._instance.commandHandler.getCommand(commandName);
+    options: CommandInteractionOptionResolver,
+    args: string[],
+    member: any,
+    guild: Guild | null,
+    channel: Channel | null
+  ) {
+    const command = this._instance.commandHandler.getCommand(commandName)
 
     if (!command || !command.callback) {
-      return false;
+      return
     }
 
-    let result = await command.callback({
+    const reply = await command.callback({
       member,
       guild,
       channel,
-      args: options,
-      // @ts-ignore
-      text: options.join ? options.join(" ") : "",
+      args,
+      text: args.join(' '),
       client: this._client,
       instance: this._instance,
       interaction,
+      options,
+    })
+
+    if (reply) {
+      if (typeof reply === 'string') {
+        interaction.reply({
+          content: reply,
+        })
+      } else {
+        let embeds = []
     });
 
     this._instance.emit(Events.COMMAND_EXECUTED, {
@@ -182,36 +241,16 @@ class SlashCommands {
       interaction,
     });
 
-    if (!result) {
-      console.error(
-        `WOKCommands > Command "${commandName}" did not return any content from it's callback function. This is required as it is a slash command.`
-      );
-      return false;
+        if (Array.isArray(reply)) {
+          embeds = reply
+        } else {
+          embeds.push(reply)
+        }
+
+        interaction.reply({ embeds })
+      }
     }
-
-    let data: any = {
-      content: result,
-    };
-
-    // Handle embeds
-    if (typeof result === "object") {
-      const embed = new MessageEmbed(result);
-      data = await this.createAPIMessage(interaction, embed);
-    }
-
-    // @ts-ignore
-    this._client.api
-      // @ts-ignore
-      .interactions(interaction.id, interaction.token)
-      .callback.post({
-        data: {
-          type: 4,
-          data,
-        },
-      });
-
-    return true;
   }
 }
 
-export = SlashCommands;
+export = SlashCommands

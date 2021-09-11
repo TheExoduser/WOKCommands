@@ -3,8 +3,8 @@ import fs from 'fs'
 import WOKCommands from '.'
 import path from 'path'
 
-import Events from './enums/Events'
 import getAllFiles from './get-all-files'
+import Events from './enums/Events'
 
 const waitingForDB: {
   func: Function
@@ -18,7 +18,12 @@ class FeatureHandler {
   private _client: Client
   private _instance: WOKCommands
 
-  constructor(client: Client, instance: WOKCommands, dir: string) {
+  constructor(
+    client: Client,
+    instance: WOKCommands,
+    dir: string,
+    typeScript = false
+  ) {
     this._client = client
     this._instance = instance
     ;(async () => {
@@ -38,7 +43,7 @@ class FeatureHandler {
       throw new Error(`Listeners directory "${dir}" doesn't exist!`)
     }
 
-    const files = getAllFiles(dir)
+    const files = getAllFiles(dir, typeScript ? '.ts' : '')
 
     const amount = files.length
     if (amount === 0) {
@@ -52,14 +57,6 @@ class FeatureHandler {
       for (const [file, fileName] of files) {
         this.registerFeature(await import(file), fileName)
       }
-
-      instance.on(Events.DATABASE_CONNECTED, (connection, state) => {
-        if (state === 'Connected') {
-          for (const { func, client, instance, isEnabled } of waitingForDB) {
-            func(client, instance, isEnabled)
-          }
-        }
-      })
     })()
   }
 
@@ -101,13 +98,16 @@ class FeatureHandler {
     }
 
     if (config && config.loadDBFirst === true) {
-      waitingForDB.push({
-        func,
-        client: this._client,
-        instance: this._instance,
-        isEnabled,
-      })
-      return
+      console.warn(
+        `WOKCommands > config.loadDBFirst in features is no longer required. MongoDB is now connected to before any features or commands are loaded.`
+      )
+      // waitingForDB.push({
+      //   func,
+      //   client: this._client,
+      //   instance: this._instance,
+      //   isEnabled,
+      // })
+      // return
     }
 
     func(this._client, this._instance, isEnabled)
