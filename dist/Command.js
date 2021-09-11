@@ -89,6 +89,18 @@ class Command {
                 this.decrementCooldowns(message.guild?.id, message.author.id);
             },
         });
+        this.instance.emit(Events_1.default.COMMAND_EXECUTED, {
+            command: this,
+            member: message.member,
+            guild: message.guild,
+            message,
+            channel: message.channel,
+            args,
+            text: args.join(" "),
+            client: this.client,
+            prefix: this.instance.getPrefix(message.guild),
+            instance: this.instance,
+        });
         if (!reply) {
             return;
         }
@@ -109,18 +121,6 @@ class Command {
                 embeds,
             });
         }
-        this.instance.emit(Events_1.default.COMMAND_EXECUTED, {
-            command: this,
-            member: message.member,
-            guild: message.guild,
-            message,
-            channel: message.channel,
-            args,
-            text: args.join(" "),
-            client: this.client,
-            prefix: this.instance.getPrefix(message.guild),
-            instance: this.instance,
-        });
     }
     get names() {
         return this._names;
