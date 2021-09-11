@@ -3,6 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 const cooldown_1 = __importDefault(require("./models/cooldown"));
+const Events_1 = __importDefault(require("./enums/Events"));
 class Command {
     instance;
     client;
@@ -31,7 +32,8 @@ class Command {
     _testOnly = false;
     _slash = false;
     _requiredChannels = new Map(); // <GuildID-Command, Channel IDs>
-    constructor(instance, client, names, callback, error, { category, minArgs, maxArgs, syntaxError, expectedArgs, description, requiredPermissions, permissions, cooldown, globalCooldown, ownerOnly = false, hidden = false, guildOnly = false, testOnly = false, slash = false, }) {
+    _loadIndicator;
+    constructor(instance, client, names, callback, error, { category, minArgs, maxArgs, syntaxError, expectedArgs, description, requiredPermissions, permissions, cooldown, globalCooldown, ownerOnly = false, hidden = false, guildOnly = false, testOnly = false, slash = false, loadIndicator = true }) {
         this.instance = instance;
         this.client = client;
         this._names = typeof names === 'string' ? [names] : names;
@@ -51,6 +53,7 @@ class Command {
         this._callback = callback;
         this._error = error;
         this._slash = slash;
+        this._loadIndicator = loadIndicator;
         if (this.cooldown && this.globalCooldown) {
             throw new Error(`Command "${names[0]}" has both a global and per-user cooldown. Commands can only have up to one of these properties.`);
         }
@@ -106,6 +109,18 @@ class Command {
                 embeds,
             });
         }
+        this.instance.emit(Events_1.default.COMMAND_EXECUTED, {
+            command: this,
+            member: message.member,
+            guild: message.guild,
+            message,
+            channel: message.channel,
+            args,
+            text: args.join(" "),
+            client: this.client,
+            prefix: this.instance.getPrefix(message.guild),
+            instance: this.instance,
+        });
     }
     get names() {
         return this._names;
@@ -145,6 +160,9 @@ class Command {
     }
     get testOnly() {
         return this._testOnly;
+    }
+    get loadIndicator() {
+        return this._loadIndicator;
     }
     verifyCooldown(cooldown, type) {
         if (typeof cooldown !== 'string') {

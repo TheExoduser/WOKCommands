@@ -40,20 +40,20 @@ class CommandHandler {
     constructor(instance, client, dir, disabledDefaultCommands, typeScript = false) {
         this._client = client;
         // Register built in commands
-        for (const [file, fileName] of get_all_files_1.default(path_1.default.join(__dirname, 'commands'))) {
+        for (const [file, fileName] of (0, get_all_files_1.default)(path_1.default.join(__dirname, 'commands'))) {
             if (disabledDefaultCommands.includes(fileName)) {
                 continue;
             }
             this.registerCommand(instance, client, file, fileName);
         }
-        for (const [file, fileName] of get_all_files_1.default(path_1.default.join(__dirname, 'command-checks'))) {
+        for (const [file, fileName] of (0, get_all_files_1.default)(path_1.default.join(__dirname, 'command-checks'))) {
             this._commandChecks.set(fileName, require(file));
         }
         if (dir) {
             if (!fs_1.default.existsSync(dir)) {
                 throw new Error(`Commands directory "${dir}" doesn't exist!`);
             }
-            const files = get_all_files_1.default(dir, typeScript ? '.ts' : '');
+            const files = (0, get_all_files_1.default)(dir, typeScript ? '.ts' : '');
             const amount = files.length;
             console.log(`WOKCommands > Loaded ${amount} command${amount === 1 ? '' : 's'}.`);
             for (const [file, fileName] of files) {
@@ -119,6 +119,12 @@ class CommandHandler {
                         return;
                     }
                 }
+                if (guild && message.channel) {
+                    if (command.loadIndicator) {
+                        message.channel.sendTyping().catch((e) => false);
+                        await message.react("🕑");
+                    }
+                }
                 try {
                     command.execute(message, args);
                 }
@@ -138,6 +144,11 @@ class CommandHandler {
                         console.error(e);
                     }
                     instance.emit(Events_1.default.COMMAND_EXCEPTION, command, message, e);
+                }
+                if (guild && message.channel) {
+                    if (command.loadIndicator) {
+                        message.reactions.removeAll().catch(err => { });
+                    }
                 }
             });
             // If we cannot connect to a database then ensure all cooldowns are less than 5m

@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 const path_1 = __importDefault(require("path"));
 const get_all_files_1 = __importDefault(require("./get-all-files"));
 const slash_commands_1 = __importDefault(require("./models/slash-commands"));
+const Events_1 = __importDefault(require("./enums/Events"));
 class SlashCommands {
     _client;
     _instance;
@@ -12,7 +13,7 @@ class SlashCommands {
     constructor(instance, listen = true) {
         this._instance = instance;
         this._client = instance.client;
-        for (const [file, fileName] of get_all_files_1.default(path_1.default.join(__dirname, 'command-checks'))) {
+        for (const [file, fileName] of (0, get_all_files_1.default)(path_1.default.join(__dirname, 'command-checks'))) {
             this._commandChecks.set(fileName, require(file));
         }
         const replyFromCheck = async (reply, interaction) => {
@@ -153,6 +154,22 @@ class SlashCommands {
                 interaction.reply({ embeds });
             }
         }
+        this._instance.emit(Events_1.default.COMMAND_EXECUTED, {
+            command,
+            member,
+            guild,
+            channel,
+            message: {
+                guild: guild,
+                author: member.user,
+            },
+            args: options,
+            // @ts-ignore
+            text: options.join ? options.join(" ") : "",
+            client: this._client,
+            instance: this._instance,
+            interaction,
+        });
     }
 }
 module.exports = SlashCommands;
