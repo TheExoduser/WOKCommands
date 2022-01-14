@@ -59,7 +59,7 @@ class Command {
       guildOnly = false,
       testOnly = false,
       slash = false,
-      loadIndicator = true
+      loadIndicator = true,
       requireRoles = false,
     }: ICommand
   ) {

@@ -14,7 +14,6 @@ import path from 'path'
 
 import getAllFiles from './get-all-files'
 import WOKCommands from '.'
-import slashCommands from './models/slash-commands'
 import Events from './enums/Events'
 
 class SlashCommands {
@@ -296,12 +295,13 @@ class SlashCommands {
 
     this._instance.emit(Events.COMMAND_EXECUTED, {
       command,
-      member,
-      guild,
-      channel,
+      member: interaction.member,
+      guild: interaction.guild,
+      channel: interaction.channel,
       message: {
-        guild: guild,
-        author: member.user,
+        guild: interaction.guild,
+        // @ts-ignore
+        author: interaction.member.user,
       },
       args: options,
       // @ts-ignore

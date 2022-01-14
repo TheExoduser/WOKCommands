@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 const path_1 = __importDefault(require("path"));
 const get_all_files_1 = __importDefault(require("./get-all-files"));
+const Events_1 = __importDefault(require("./enums/Events"));
 class SlashCommands {
     _client;
     _instance;
@@ -188,12 +189,13 @@ class SlashCommands {
         }
         this._instance.emit(Events_1.default.COMMAND_EXECUTED, {
             command,
-            member,
-            guild,
-            channel,
+            member: interaction.member,
+            guild: interaction.guild,
+            channel: interaction.channel,
             message: {
-                guild: guild,
-                author: member.user,
+                guild: interaction.guild,
+                // @ts-ignore
+                author: interaction.member.user,
             },
             args: options,
             // @ts-ignore

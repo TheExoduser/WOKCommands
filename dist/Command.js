@@ -34,7 +34,7 @@ class Command {
     _requireRoles = false;
     _requiredChannels = new Map(); // <GuildID-Command, Channel IDs>
     _loadIndicator;
-    constructor(instance, client, names, callback, error, { category, minArgs, maxArgs, syntaxError, expectedArgs, description, requiredPermissions, permissions, cooldown, globalCooldown, ownerOnly = false, hidden = false, guildOnly = false, testOnly = false, slash = false, requireRoles = false, loadIndicator = true }) {
+    constructor(instance, client, names, callback, error, { category, minArgs, maxArgs, syntaxError, expectedArgs, description, requiredPermissions, permissions, cooldown, globalCooldown, ownerOnly = false, hidden = false, guildOnly = false, testOnly = false, slash = false, loadIndicator = true, requireRoles = false, }) {
         this.instance = instance;
         this.client = client;
         this._names = typeof names === 'string' ? [names] : names;
