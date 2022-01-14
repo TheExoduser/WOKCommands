@@ -1,23 +1,4 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -33,56 +14,78 @@ const channel_commands_1 = __importDefault(require("./models/channel-commands"))
 const permissions_1 = require("./permissions");
 const CommandErrors_1 = __importDefault(require("./enums/CommandErrors"));
 const Events_1 = __importDefault(require("./enums/Events"));
+const replyFromCheck = async (reply, message) => {
+    if (!reply) {
+        return new Promise((resolve) => {
+            resolve('No reply provided.');
+        });
+    }
+    if (typeof reply === 'string') {
+        return message.reply({
+            content: reply,
+        });
+    }
+    else {
+        let embeds = [];
+        if (Array.isArray(reply)) {
+            embeds = reply;
+        }
+        else {
+            embeds.push(reply);
+        }
+        return message.reply({
+            embeds,
+        });
+    }
+};
 class CommandHandler {
     _commands = new Map();
     _client = null;
     _commandChecks = new Map();
     constructor(instance, client, dir, disabledDefaultCommands, typeScript = false) {
         this._client = client;
-        // Register built in commands
-        for (const [file, fileName] of (0, get_all_files_1.default)(path_1.default.join(__dirname, 'commands'))) {
+        this.setUp(instance, client, dir, disabledDefaultCommands, typeScript);
+    }
+    async setUp(instance, client, dir, disabledDefaultCommands, typeScript = false) {
+        // Do not pass in TS here because this should always compiled to JS
+        for (const [file, fileName] of get_all_files_1.default(path_1.default.join(__dirname, 'commands'))) {
             if (disabledDefaultCommands.includes(fileName)) {
                 continue;
             }
-            this.registerCommand(instance, client, file, fileName);
+            await this.registerCommand(instance, client, file, fileName, true);
         }
-        for (const [file, fileName] of (0, get_all_files_1.default)(path_1.default.join(__dirname, 'command-checks'))) {
+        // Do not pass in TS here because this should always compiled to JS
+        for (const [file, fileName] of get_all_files_1.default(path_1.default.join(__dirname, 'command-checks'))) {
             this._commandChecks.set(fileName, require(file));
         }
         if (dir) {
             if (!fs_1.default.existsSync(dir)) {
                 throw new Error(`Commands directory "${dir}" doesn't exist!`);
             }
-            const files = (0, get_all_files_1.default)(dir, typeScript ? '.ts' : '');
+            const files = get_all_files_1.default(dir, typeScript ? '.ts' : '');
             const amount = files.length;
             console.log(`WOKCommands > Loaded ${amount} command${amount === 1 ? '' : 's'}.`);
             for (const [file, fileName] of files) {
-                this.registerCommand(instance, client, file, fileName);
+                await this.registerCommand(instance, client, file, fileName);
             }
-            const replyFromCheck = async (reply, message) => {
-                if (!reply) {
-                    return new Promise((resolve) => {
-                        resolve('No reply provided.');
+            if (instance.isDBConnected()) {
+                await this.fetchDisabledCommands();
+                await this.fetchRequiredRoles();
+                await this.fetchChannelOnly();
+            }
+            this._commands.forEach(async (command) => {
+                command.verifyDatabaseCooldowns();
+                if (instance.isDBConnected()) {
+                    const results = await cooldown_1.default.find({
+                        name: command.names[0],
+                        type: command.globalCooldown ? 'global' : 'per-user',
                     });
-                }
-                if (typeof reply === 'string') {
-                    return message.reply({
-                        content: reply,
-                    });
-                }
-                else {
-                    let embeds = [];
-                    if (Array.isArray(reply)) {
-                        embeds = reply;
+                    for (const { _id, cooldown } of results) {
+                        const [name, guildId, userId] = _id.split('-');
+                        command.setCooldown(guildId, userId, cooldown);
                     }
-                    else {
-                        embeds.push(reply);
-                    }
-                    return message.reply({
-                        embeds,
-                    });
                 }
-            };
+            });
             client.on('messageCreate', async (message) => {
                 const guild = message.guild;
                 let content = message.content;
@@ -151,29 +154,6 @@ class CommandHandler {
                     }
                 }
             });
-            // If we cannot connect to a database then ensure all cooldowns are less than 5m
-            instance.on(Events_1.default.DATABASE_CONNECTED, async (connection, state) => {
-                const connected = state === 'Connected';
-                if (!connected) {
-                    return;
-                }
-                // Load previously used cooldowns
-                await this.fetchDisabledCommands();
-                await this.fetchRequiredRoles();
-                await this.fetchChannelOnly();
-                this._commands.forEach(async (command) => {
-                    command.verifyDatabaseCooldowns(connected);
-                    const results = await cooldown_1.default.find({
-                        name: command.names[0],
-                        type: command.globalCooldown ? 'global' : 'per-user',
-                    });
-                    // @ts-ignore
-                    for (const { _id, cooldown } of results) {
-                        const [name, guildId, userId] = _id.split('-');
-                        command.setCooldown(guildId, userId, cooldown);
-                    }
-                });
-            });
         }
         const decrementCountdown = () => {
             this._commands.forEach((command) => {
@@ -183,13 +163,14 @@ class CommandHandler {
         };
         decrementCountdown();
     }
-    async registerCommand(instance, client, file, fileName) {
-        let configuration = await Promise.resolve().then(() => __importStar(require(file)));
+    async registerCommand(instance, client, file, fileName, builtIn = false) {
+        let configuration = await require(file);
         // person is using 'export default' so we import the default instead
         if (configuration.default && Object.keys(configuration).length === 1) {
             configuration = configuration.default;
         }
-        const { name = fileName, category, commands, aliases, init, callback, run, execute, error, description, requiredPermissions, permissions, testOnly, slash, expectedArgs, minArgs, options = [], } = configuration;
+        const { name = fileName, category, commands, aliases, init, callback, run, execute, error, description, requiredPermissions, permissions, slash, expectedArgs, expectedArgsTypes, minArgs, options = [], } = configuration;
+        const { testOnly } = configuration;
         if (run || execute) {
             throw new Error(`Command located at "${file}" has either a "run" or "execute" function. Please rename that function to "callback".`);
         }
@@ -234,14 +215,13 @@ class CommandHandler {
         if (!slash && options.length) {
             throw new Error(`WOKCommands > Command "${names[0]}" has an "options" property but is not a slash command.`);
         }
-        if (slash) {
+        if (slash && !(builtIn && !instance.isDBConnected())) {
             if (!description) {
                 throw new Error(`WOKCommands > A description is required for command "${names[0]}" because it is a slash command.`);
             }
             if (minArgs !== undefined && !expectedArgs) {
                 throw new Error(`WOKCommands > Command "${names[0]}" has "minArgs" property defined without "expectedArgs" property as a slash command.`);
             }
-            const slashCommands = instance.slashCommands;
             if (options.length) {
                 for (const key in options) {
                     const name = options[key].name;
@@ -265,11 +245,14 @@ class CommandHandler {
                     options.push({
                         name: item.replace(/ /g, '-').toLowerCase(),
                         description: item,
-                        type: 3,
+                        type: expectedArgsTypes && expectedArgsTypes.length >= a
+                            ? expectedArgsTypes[a]
+                            : 'STRING',
                         required: a < minArgs,
                     });
                 }
             }
+            const slashCommands = instance.slashCommands;
             if (testOnly) {
                 for (const id of instance.testServers) {
                     await slashCommands.create(names[0], description, options, id);

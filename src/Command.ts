@@ -1,4 +1,4 @@
-import { Client, Guild, Message } from 'discord.js'
+import { Client, Guild, Message, MessageEmbed } from 'discord.js'
 import WOKCommands from '.'
 
 import permissions from './permissions'
@@ -33,6 +33,7 @@ class Command {
   private _guildOnly = false
   private _testOnly = false
   private _slash: boolean | string = false
+  private _requireRoles = false
   private _requiredChannels: Map<String, String[]> = new Map() // <GuildID-Command, Channel IDs>
   private _loadIndicator: boolean;
 
@@ -59,6 +60,7 @@ class Command {
       testOnly = false,
       slash = false,
       loadIndicator = true
+      requireRoles = false,
     }: ICommand
   ) {
     this.instance = instance
@@ -81,6 +83,7 @@ class Command {
     this._error = error
     this._slash = slash
     this._loadIndicator = loadIndicator;
+    this._requireRoles = requireRoles
 
     if (this.cooldown && this.globalCooldown) {
       throw new Error(
@@ -130,6 +133,9 @@ class Command {
       client: this.client,
       prefix: this.instance.getPrefix(message.guild),
       instance: this.instance,
+      user: message.author,
+      member: message.member,
+      guild: message.guild,
       cancelCoolDown: () => {
         this.decrementCooldowns(message.guild?.id, message.author.id)
       },
@@ -156,18 +162,22 @@ class Command {
       message.reply({
         content: reply,
       })
-    } else {
-      let embeds = []
-
-      if (Array.isArray(reply)) {
-        embeds = reply
+    } else if (typeof reply === 'object') {
+      if (reply.custom) {
+        message.reply(reply)
       } else {
-        embeds.push(reply)
-      }
+        let embeds = []
 
-      message.reply({
-        embeds,
-      })
+        if (Array.isArray(reply)) {
+          embeds = reply
+        } else {
+          embeds.push(reply)
+        }
+
+        message.reply({
+          embeds,
+        })
+      }
     }
   }
 
@@ -311,7 +321,7 @@ class Command {
     return this._ownerOnly
   }
 
-  public verifyDatabaseCooldowns(connected: boolean) {
+  public verifyDatabaseCooldowns() {
     if (
       this._cooldownChar === 'd' ||
       this._cooldownChar === 'h' ||
@@ -319,7 +329,7 @@ class Command {
     ) {
       this._databaseCooldown = true
 
-      if (!connected) {
+      if (!this.instance.isDBConnected()) {
         console.warn(
           `WOKCommands > A database connection is STRONGLY RECOMMENDED for cooldowns of 5 minutes or more.`
         )
@@ -345,7 +355,7 @@ class Command {
             map.set(key, value)
           }
 
-          if (this._databaseCooldown && this.instance.isDBConnected) {
+          if (this._databaseCooldown && this.instance.isDBConnected()) {
             this.updateDatabaseCooldowns(`${this.names[0]}-${key}`, value)
           }
         })
@@ -355,7 +365,7 @@ class Command {
 
   public async updateDatabaseCooldowns(_id: String, cooldown: number) {
     // Only update every 20s
-    if (cooldown % 20 === 0) {
+    if (cooldown % 20 === 0 && this.instance.isDBConnected()) {
       const type = this.globalCooldown ? 'global' : 'per-user'
 
       if (cooldown <= 0) {
@@ -501,6 +511,10 @@ class Command {
     return this._slash
   }
 
+  public get doesRequireRoles(): boolean {
+    return this._requireRoles
+  }
+
   public get requiredChannels(): Map<String, String[]> {
     return this._requiredChannels
   }
@@ -508,7 +522,7 @@ class Command {
   public setRequiredChannels(
     guild: Guild | null,
     command: string,
-    channels: string[]
+    channels: String[]
   ) {
     if (!guild) {
       return

@@ -14,6 +14,35 @@ import { ICommand } from '../typings'
 import CommandErrors from './enums/CommandErrors'
 import Events from './enums/Events'
 
+const replyFromCheck = async (
+  reply: string | MessageEmbed | MessageEmbed[],
+  message: Message
+) => {
+  if (!reply) {
+    return new Promise((resolve) => {
+      resolve('No reply provided.')
+    })
+  }
+
+  if (typeof reply === 'string') {
+    return message.reply({
+      content: reply,
+    })
+  } else {
+    let embeds = []
+
+    if (Array.isArray(reply)) {
+      embeds = reply
+    } else {
+      embeds.push(reply)
+    }
+
+    return message.reply({
+      embeds,
+    })
+  }
+}
+
 export default class CommandHandler {
   private _commands: Map<String, Command> = new Map()
   private _client: Client | null = null
@@ -28,7 +57,17 @@ export default class CommandHandler {
   ) {
     this._client = client
 
-    // Register built in commands
+    this.setUp(instance, client, dir, disabledDefaultCommands, typeScript)
+  }
+
+  private async setUp(
+    instance: WOKCommands,
+    client: Client,
+    dir: string,
+    disabledDefaultCommands: string[],
+    typeScript = false
+  ) {
+    // Do not pass in TS here because this should always compiled to JS
     for (const [file, fileName] of getAllFiles(
       path.join(__dirname, 'commands')
     )) {
@@ -36,9 +75,10 @@ export default class CommandHandler {
         continue
       }
 
-      this.registerCommand(instance, client, file, fileName)
+      await this.registerCommand(instance, client, file, fileName, true)
     }
 
+    // Do not pass in TS here because this should always compiled to JS
     for (const [file, fileName] of getAllFiles(
       path.join(__dirname, 'command-checks')
     )) {
@@ -58,37 +98,30 @@ export default class CommandHandler {
       )
 
       for (const [file, fileName] of files) {
-        this.registerCommand(instance, client, file, fileName)
+        await this.registerCommand(instance, client, file, fileName)
       }
 
-      const replyFromCheck = async (
-        reply: string | MessageEmbed | MessageEmbed[],
-        message: Message
-      ) => {
-        if (!reply) {
-          return new Promise((resolve) => {
-            resolve('No reply provided.')
-          })
-        }
+      if (instance.isDBConnected()) {
+        await this.fetchDisabledCommands()
+        await this.fetchRequiredRoles()
+        await this.fetchChannelOnly()
+      }
 
-        if (typeof reply === 'string') {
-          return message.reply({
-            content: reply,
-          })
-        } else {
-          let embeds = []
+      this._commands.forEach(async (command) => {
+        command.verifyDatabaseCooldowns()
 
-          if (Array.isArray(reply)) {
-            embeds = reply
-          } else {
-            embeds.push(reply)
+        if (instance.isDBConnected()) {
+          const results = await cooldown.find({
+            name: command.names[0],
+            type: command.globalCooldown ? 'global' : 'per-user',
+          })
+
+          for (const { _id, cooldown } of results) {
+            const [name, guildId, userId] = _id.split('-')
+            command.setCooldown(guildId, userId, cooldown)
           }
-
-          return message.reply({
-            embeds,
-          })
         }
-      }
+      })
 
       client.on('messageCreate', async (message) => {
         const guild: Guild | null = message.guild
@@ -186,39 +219,6 @@ export default class CommandHandler {
           }
         }
       })
-
-      // If we cannot connect to a database then ensure all cooldowns are less than 5m
-      instance.on(
-        Events.DATABASE_CONNECTED,
-        async (connection: any, state: string) => {
-          const connected = state === 'Connected'
-
-          if (!connected) {
-            return
-          }
-
-          // Load previously used cooldowns
-
-          await this.fetchDisabledCommands()
-          await this.fetchRequiredRoles()
-          await this.fetchChannelOnly()
-
-          this._commands.forEach(async (command) => {
-            command.verifyDatabaseCooldowns(connected)
-
-            const results = await cooldown.find({
-              name: command.names[0],
-              type: command.globalCooldown ? 'global' : 'per-user',
-            })
-
-            // @ts-ignore
-            for (const { _id, cooldown } of results) {
-              const [name, guildId, userId] = _id.split('-')
-              command.setCooldown(guildId, userId, cooldown)
-            }
-          })
-        }
-      )
     }
 
     const decrementCountdown = () => {
@@ -235,9 +235,10 @@ export default class CommandHandler {
     instance: WOKCommands,
     client: Client,
     file: string,
-    fileName: string
+    fileName: string,
+    builtIn = false
   ) {
-    let configuration = await import(file)
+    let configuration = await require(file)
 
     // person is using 'export default' so we import the default instead
     if (configuration.default && Object.keys(configuration).length === 1) {
@@ -257,12 +258,14 @@ export default class CommandHandler {
       description,
       requiredPermissions,
       permissions,
-      testOnly,
       slash,
       expectedArgs,
+      expectedArgsTypes,
       minArgs,
       options = [],
     } = configuration
+
+    const { testOnly } = configuration
 
     if (run || execute) {
       throw new Error(
@@ -338,7 +341,7 @@ export default class CommandHandler {
       )
     }
 
-    if (slash) {
+    if (slash && !(builtIn && !instance.isDBConnected())) {
       if (!description) {
         throw new Error(
           `WOKCommands > A description is required for command "${names[0]}" because it is a slash command.`
@@ -350,8 +353,6 @@ export default class CommandHandler {
           `WOKCommands > Command "${names[0]}" has "minArgs" property defined without "expectedArgs" property as a slash command.`
         )
       }
-
-      const slashCommands = instance.slashCommands
 
       if (options.length) {
         for (const key in options) {
@@ -384,12 +385,16 @@ export default class CommandHandler {
           options.push({
             name: item.replace(/ /g, '-').toLowerCase(),
             description: item,
-            type: 3,
+            type:
+              expectedArgsTypes && expectedArgsTypes.length >= a
+                ? expectedArgsTypes[a]
+                : 'STRING',
             required: a < minArgs,
           })
         }
       }
 
+      const slashCommands = instance.slashCommands
       if (testOnly) {
         for (const id of instance.testServers) {
           await slashCommands.create(names[0], description, options, id)

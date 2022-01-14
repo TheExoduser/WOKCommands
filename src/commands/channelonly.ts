@@ -1,4 +1,3 @@
-import DiscordJS from 'discord.js'
 import { ICallbackObject, ICommand } from '../..'
 import channelCommandSchema from '../models/channel-commands'
 
@@ -21,13 +20,13 @@ export = {
     {
       name: 'command',
       description: 'The command name',
-      type: DiscordJS.Constants.ApplicationCommandOptionTypes.STRING,
+      type: 'STRING',
       required: true,
     },
     {
       name: 'channel',
       description: 'The tag of the channel',
-      type: DiscordJS.Constants.ApplicationCommandOptionTypes.CHANNEL,
+      type: 'CHANNEL',
       required: false,
     },
   ],
@@ -39,7 +38,11 @@ export = {
     const { messageHandler } = instance
 
     let commandName = (args.shift() || '').toLowerCase()
-    const command = instance.commandHandler.getICommand(commandName)
+    const command = instance.commandHandler.getCommand(commandName)
+
+    if (!instance.isDBConnected()) {
+      return messageHandler.get(guild, 'NO_DATABASE_FOUND')
+    }
 
     if (!command || !command.names) {
       return messageHandler.get(guild, 'UNKNOWN_COMMAND', {
@@ -55,9 +58,12 @@ export = {
         command: commandName,
       })
 
+      // @ts-ignore
       if (results.n === 0) {
         return messageHandler.get(guild, 'NOT_CHANNEL_COMMAND')
       }
+
+      command.setRequiredChannels(guild, commandName, [])
 
       return messageHandler.get(guild, 'NO_LONGER_CHANNEL_COMMAND')
     }
@@ -74,7 +80,7 @@ export = {
       channels = [interaction.options.getChannel('channel')]
     }
 
-    await channelCommandSchema.findOneAndUpdate(
+    const results = await channelCommandSchema.findOneAndUpdate(
       {
         guildId: guild?.id,
         command: commandName,
@@ -88,8 +94,13 @@ export = {
       },
       {
         upsert: true,
+        new: true,
       }
     )
+
+    if (results) {
+      command.setRequiredChannels(guild, commandName, results.channels)
+    }
 
     return messageHandler.get(guild, 'NOW_CHANNEL_COMMAND', {
       COMMAND: commandName,

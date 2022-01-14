@@ -31,6 +31,8 @@ export default class WOKCommands extends EventEmitter {
   private _botOwner: string[] = []
   private _testServers: string[] = []
   private _defaultLanguage = 'english'
+  private _ephemeral = true
+  private _debug = false
   private _messageHandler: MessageHandler | null = null
   private _slashCommand: SlashCommands | null = null
 
@@ -60,8 +62,11 @@ export default class WOKCommands extends EventEmitter {
       ignoreBots = true,
       dbOptions,
       testServers,
+      botOwners,
       disabledDefaultCommands = [],
       typeScript = false,
+      ephemeral = true,
+      debug = false,
     } = options || {}
 
     if (mongoUri) {
@@ -88,6 +93,8 @@ export default class WOKCommands extends EventEmitter {
 
     this._commandsDir = commandsDir || commandDir || this._commandsDir
     this._featuresDir = featuresDir || featureDir || this._featuresDir
+    this._ephemeral = ephemeral
+    this._debug = debug
 
     if (
       this._commandsDir &&
@@ -111,8 +118,14 @@ export default class WOKCommands extends EventEmitter {
       if (typeof testServers === 'string') {
         testServers = [testServers]
       }
-
       this._testServers = testServers
+    }
+
+    if (botOwners) {
+      if (typeof botOwners === 'string') {
+        botOwners = [botOwners]
+      }
+      this._botOwner = botOwners
     }
 
     this._showWarns = showWarns
@@ -124,8 +137,6 @@ export default class WOKCommands extends EventEmitter {
       disabledDefaultCommands = [disabledDefaultCommands]
     }
 
-    this._slashCommand = new SlashCommands(this)
-
     this._commandHandler = new CommandHandler(
       this,
       client,
@@ -133,13 +144,7 @@ export default class WOKCommands extends EventEmitter {
       disabledDefaultCommands,
       typeScript
     )
-    this._featureHandler = new FeatureHandler(
-      client,
-      this,
-      this._featuresDir,
-      typeScript
-    )
-
+    this._slashCommand = new SlashCommands(this, true, typeScript)
     this._messageHandler = new MessageHandler(this, messagesPath || '')
 
     this.setCategorySettings([
@@ -152,6 +157,15 @@ export default class WOKCommands extends EventEmitter {
         emoji: '❓',
       },
     ])
+
+    this._featureHandler = new FeatureHandler(
+      client,
+      this,
+      this._featuresDir,
+      typeScript
+    )
+
+    console.log('WOKCommands > Your bot is now running.')
   }
 
   public setMongoPath(mongoPath: string | undefined): WOKCommands {
@@ -325,6 +339,10 @@ export default class WOKCommands extends EventEmitter {
   }
 
   public setBotOwner(botOwner: string | string[]): WOKCommands {
+    console.log(
+      'WOKCommands > setBotOwner() is deprecated. Please specify your bot owners in the object constructor instead. See https://docs.wornoffkeys.com/setup-and-options-object'
+    )
+
     if (typeof botOwner === 'string') {
       botOwner = [botOwner]
     }
@@ -343,6 +361,14 @@ export default class WOKCommands extends EventEmitter {
   public setDefaultLanguage(defaultLanguage: string): WOKCommands {
     this._defaultLanguage = defaultLanguage
     return this
+  }
+
+  public get ephemeral(): boolean {
+    return this._ephemeral
+  }
+
+  public get debug(): boolean {
+    return this._debug
   }
 
   public get messageHandler(): MessageHandler {

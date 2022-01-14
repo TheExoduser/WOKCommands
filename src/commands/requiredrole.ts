@@ -1,4 +1,3 @@
-import DiscordJS from 'discord.js'
 import { ICallbackObject, ICommand } from '../..'
 import requiredRoleSchema from '../models/required-roles'
 
@@ -7,7 +6,7 @@ export = {
   category: 'Configuration',
 
   permissions: ['ADMINISTRATOR'],
-  names: ['requiredroles', 'requirerole', 'requireroles'],
+  aliases: ['requiredroles', 'requirerole', 'requireroles'],
 
   minArgs: 2,
   maxArgs: 2,

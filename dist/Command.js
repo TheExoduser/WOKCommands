@@ -31,9 +31,10 @@ class Command {
     _guildOnly = false;
     _testOnly = false;
     _slash = false;
+    _requireRoles = false;
     _requiredChannels = new Map(); // <GuildID-Command, Channel IDs>
     _loadIndicator;
-    constructor(instance, client, names, callback, error, { category, minArgs, maxArgs, syntaxError, expectedArgs, description, requiredPermissions, permissions, cooldown, globalCooldown, ownerOnly = false, hidden = false, guildOnly = false, testOnly = false, slash = false, loadIndicator = true }) {
+    constructor(instance, client, names, callback, error, { category, minArgs, maxArgs, syntaxError, expectedArgs, description, requiredPermissions, permissions, cooldown, globalCooldown, ownerOnly = false, hidden = false, guildOnly = false, testOnly = false, slash = false, requireRoles = false, loadIndicator = true }) {
         this.instance = instance;
         this.client = client;
         this._names = typeof names === 'string' ? [names] : names;
@@ -54,6 +55,7 @@ class Command {
         this._error = error;
         this._slash = slash;
         this._loadIndicator = loadIndicator;
+        this._requireRoles = requireRoles;
         if (this.cooldown && this.globalCooldown) {
             throw new Error(`Command "${names[0]}" has both a global and per-user cooldown. Commands can only have up to one of these properties.`);
         }
@@ -85,6 +87,9 @@ class Command {
             client: this.client,
             prefix: this.instance.getPrefix(message.guild),
             instance: this.instance,
+            user: message.author,
+            member: message.member,
+            guild: message.guild,
             cancelCoolDown: () => {
                 this.decrementCooldowns(message.guild?.id, message.author.id);
             },
@@ -109,17 +114,22 @@ class Command {
                 content: reply,
             });
         }
-        else {
-            let embeds = [];
-            if (Array.isArray(reply)) {
-                embeds = reply;
+        else if (typeof reply === 'object') {
+            if (reply.custom) {
+                message.reply(reply);
             }
             else {
-                embeds.push(reply);
+                let embeds = [];
+                if (Array.isArray(reply)) {
+                    embeds = reply;
+                }
+                else {
+                    embeds.push(reply);
+                }
+                message.reply({
+                    embeds,
+                });
             }
-            message.reply({
-                embeds,
-            });
         }
     }
     get names() {
@@ -212,12 +222,12 @@ class Command {
     get ownerOnly() {
         return this._ownerOnly;
     }
-    verifyDatabaseCooldowns(connected) {
+    verifyDatabaseCooldowns() {
         if (this._cooldownChar === 'd' ||
             this._cooldownChar === 'h' ||
             (this._cooldownChar === 'm' && this._cooldownDuration >= 5)) {
             this._databaseCooldown = true;
-            if (!connected) {
+            if (!this.instance.isDBConnected()) {
                 console.warn(`WOKCommands > A database connection is STRONGLY RECOMMENDED for cooldowns of 5 minutes or more.`);
             }
         }
@@ -239,7 +249,7 @@ class Command {
                     else {
                         map.set(key, value);
                     }
-                    if (this._databaseCooldown && this.instance.isDBConnected) {
+                    if (this._databaseCooldown && this.instance.isDBConnected()) {
                         this.updateDatabaseCooldowns(`${this.names[0]}-${key}`, value);
                     }
                 });
@@ -248,7 +258,7 @@ class Command {
     }
     async updateDatabaseCooldowns(_id, cooldown) {
         // Only update every 20s
-        if (cooldown % 20 === 0) {
+        if (cooldown % 20 === 0 && this.instance.isDBConnected()) {
             const type = this.globalCooldown ? 'global' : 'per-user';
             if (cooldown <= 0) {
                 await cooldown_1.default.deleteOne({ _id, name: this.names[0], type });
@@ -363,6 +373,9 @@ class Command {
     }
     get slash() {
         return this._slash;
+    }
+    get doesRequireRoles() {
+        return this._requireRoles;
     }
     get requiredChannels() {
         return this._requiredChannels;

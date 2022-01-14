@@ -6,7 +6,9 @@ import {
   CommandInteraction,
   CommandInteractionOptionResolver,
   Guild,
+  GuildMember,
   MessageEmbed,
+  User,
 } from 'discord.js'
 import path from 'path'
 
@@ -20,10 +22,15 @@ class SlashCommands {
   private _instance: WOKCommands
   private _commandChecks: Map<String, Function> = new Map()
 
-  constructor(instance: WOKCommands, listen = true) {
+  constructor(instance: WOKCommands, listen: boolean, typeScript?: boolean) {
     this._instance = instance
     this._client = instance.client
 
+    this.setUp(listen, typeScript)
+  }
+
+  private async setUp(listen: boolean, typeScript = false) {
+    // Do not pass in TS here because this should always compiled to JS
     for (const [file, fileName] of getAllFiles(
       path.join(__dirname, 'command-checks')
     )) {
@@ -43,6 +50,7 @@ class SlashCommands {
       if (typeof reply === 'string') {
         return interaction.reply({
           content: reply,
+          ephemeral: this._instance.ephemeral,
         })
       } else {
         let embeds = []
@@ -55,6 +63,7 @@ class SlashCommands {
 
         return interaction.reply({
           embeds,
+          ephemeral: this._instance.ephemeral,
         })
       }
     }
@@ -65,10 +74,21 @@ class SlashCommands {
           return
         }
 
-        const { member, user, commandName, options, guild, channelId } =
-          interaction
-        const command = instance.commandHandler.getCommand(commandName)
+        const { user, commandName, options, guild, channelId } = interaction
+        const member = interaction.member as GuildMember
         const channel = guild?.channels.cache.get(channelId) || null
+        const command = this._instance.commandHandler.getCommand(commandName)
+
+        if (!command) {
+          interaction.reply({
+            content: this._instance.messageHandler.get(
+              guild,
+              'INVALID_SLASH_COMMAND'
+            ),
+            ephemeral: this._instance.ephemeral,
+          })
+          return
+        }
 
         const args: string[] = []
 
@@ -84,7 +104,7 @@ class SlashCommands {
             !(await checkFunction(
               guild,
               command,
-              instance,
+              this._instance,
               member,
               user,
               (reply: string | MessageEmbed) => {
@@ -99,15 +119,7 @@ class SlashCommands {
           }
         }
 
-        this.invokeCommand(
-          interaction,
-          commandName,
-          options,
-          args,
-          member,
-          guild,
-          channel
-        )
+        this.invokeCommand(interaction, commandName, options, args)
       })
     }
   }
@@ -123,10 +135,27 @@ class SlashCommands {
   public async get(guildId?: string): Promise<Map<any, any>> {
     const commands = this.getCommands(guildId)
     if (commands) {
+      // @ts-ignore
+      await commands.fetch()
       return commands.cache
     }
 
     return new Map()
+  }
+
+  private didOptionsChange(
+    command: ApplicationCommand,
+    options: ApplicationCommandOptionData[]
+  ): boolean {
+    return (
+      command.options?.filter((opt, index) => {
+        return (
+          opt?.required !== options[index]?.required &&
+          opt?.name !== options[index]?.name &&
+          opt?.options?.length !== options.length
+        )
+      }).length !== 0
+    )
   }
 
   public async create(
@@ -135,41 +164,61 @@ class SlashCommands {
     options: ApplicationCommandOptionData[],
     guildId?: string
   ): Promise<ApplicationCommand<{}> | undefined> {
-    // @ts-ignore
-    const nameAndClient = `${name}-${this._client.user.id}`
     let commands
 
     if (guildId) {
       commands = this._client.guilds.cache.get(guildId)?.commands
     } else {
       commands = this._client.application?.commands
+    }
 
-      if (this._instance.isDBConnected()) {
-        const alreadyCreated = await slashCommands.findOne({ nameAndClient })
-        if (alreadyCreated) {
-          try {
-            await commands?.fetch(alreadyCreated._id)
-          } catch (e) {
-            await slashCommands.deleteOne({ nameAndClient })
-          }
-          return
-        }
+    if (!commands) {
+      return
+    }
+
+    // @ts-ignore
+    await commands.fetch()
+
+    const cmd = commands.cache.find(
+      (cmd) => cmd.name === name
+    ) as ApplicationCommand
+
+    if (cmd) {
+      const optionsChanged = this.didOptionsChange(cmd, options)
+
+      if (
+        cmd.description !== description ||
+        cmd.options.length !== options.length ||
+        optionsChanged
+      ) {
+        console.log(
+          `WOKCommands > Updating${
+            guildId ? ' guild' : ''
+          } slash command "${name}"`
+        )
+
+        return commands?.edit(cmd.id, {
+          name,
+          description,
+          options,
+        })
       }
+
+      return Promise.resolve(cmd)
     }
 
     if (commands) {
+      console.log(
+        `WOKCommands > Creating${
+          guildId ? ' guild' : ''
+        } slash command "${name}"`
+      )
+
       const newCommand = await commands.create({
         name,
         description,
         options,
       })
-
-      if (!guildId && this._instance.isDBConnected()) {
-        await new slashCommands({
-          _id: newCommand.id,
-          nameAndClient,
-        }).save()
-      }
 
       return newCommand
     }
@@ -183,7 +232,16 @@ class SlashCommands {
   ): Promise<ApplicationCommand<{}> | undefined> {
     const commands = this.getCommands(guildId)
     if (commands) {
-      return await commands.cache.get(commandId)?.delete()
+      const cmd = commands.cache.get(commandId)
+      if (cmd) {
+        console.log(
+          `WOKCommands > Deleting${guildId ? ' guild' : ''} slash command "${
+            cmd.name
+          }"`
+        )
+
+        cmd.delete()
+      }
     }
 
     return Promise.resolve(undefined)
@@ -193,10 +251,7 @@ class SlashCommands {
     interaction: CommandInteraction,
     commandName: string,
     options: CommandInteractionOptionResolver,
-    args: string[],
-    member: any,
-    guild: Guild | null,
-    channel: Channel | null
+    args: string[]
   ) {
     const command = this._instance.commandHandler.getCommand(commandName)
 
@@ -205,15 +260,16 @@ class SlashCommands {
     }
 
     const reply = await command.callback({
-      member,
-      guild,
-      channel,
+      member: interaction.member,
+      guild: interaction.guild,
+      channel: interaction.channel,
       args,
       text: args.join(' '),
       client: this._client,
       instance: this._instance,
       interaction,
       options,
+      user: interaction.user,
     })
 
     if (reply) {
@@ -221,16 +277,20 @@ class SlashCommands {
         interaction.reply({
           content: reply,
         })
-      } else {
-        let embeds = []
-
-        if (Array.isArray(reply)) {
-          embeds = reply
+      } else if (typeof reply === 'object') {
+        if (reply.custom) {
+          interaction.reply(reply)
         } else {
-          embeds.push(reply)
-        }
+          let embeds = []
 
-        interaction.reply({ embeds })
+          if (Array.isArray(reply)) {
+            embeds = reply
+          } else {
+            embeds.push(reply)
+          }
+
+          interaction.reply({ embeds })
+        }
       }
     }
 
